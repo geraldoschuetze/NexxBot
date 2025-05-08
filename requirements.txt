@@ -5,3 +5,5 @@ langchain-community >=0.0.30, <0.1
 pytube
 tiktoken
 requests
+pydub
+ffmpeg-python
