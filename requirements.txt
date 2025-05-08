@@ -1,0 +1,7 @@
+streamlit
+openai
+langchain
+pytube
+python-dotenv
+tiktoken
+requests
