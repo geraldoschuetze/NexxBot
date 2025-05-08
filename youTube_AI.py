@@ -2,26 +2,30 @@ import streamlit as st
 import os
 import openai
 import uuid
+import mimetypes
 from pytube import YouTube
 from pydub import AudioSegment
 from langchain.chat_models import ChatOpenAI
 from langchain.chains.question_answering import load_qa_chain
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
-# Set OpenAI API key
+# Chave da OpenAI s
 openai.api_key = os.getenv("OPENAI_API_KEY")
 if not openai.api_key:
-    st.error("OPENAI_API_KEY não está configurada.")
+    st.error("OPENAI_API_KEY não configurada.")
     st.stop()
 
+# Configura layout do app
 st.set_page_config(page_title="YouTube AI por Áudio", layout="wide")
 st.title("🎧 YouTube AI – Transcreve e responde perguntas")
 
+# Entrada do usuário
 video_url = st.text_input("🔗 URL do vídeo do YouTube:")
 user_question = st.text_input("❓ Pergunta para a IA:")
 
-MAX_MB = 24  # Whisper aceita até 25MB
+MAX_MB = 24  # Limite do Whisper é 25MB
 
+# Função para baixar e converter o áudio
 def baixar_audio_do_video(video_url):
     yt = YouTube(video_url)
     audio_stream = yt.streams.filter(only_audio=True).first()
@@ -30,56 +34,49 @@ def baixar_audio_do_video(video_url):
     audio_path = f"temp_{file_id}.mp3"
     audio_stream.download(filename=temp_path)
 
+    # Conversão com qualidade e formato adequado
     audio = AudioSegment.from_file(temp_path)
-    audio.export(audio_path, format="mp3")
+    audio = audio.set_frame_rate(16000).set_channels(1)
+    audio.export(audio_path, format="mp3", bitrate="192k")
     os.remove(temp_path)
     return audio_path
 
-def dividir_audio(audio, max_mb=MAX_MB):
-    partes = []
-    tamanho_total = len(audio)
-    max_bytes = max_mb * 1024 * 1024
-    bytes_por_ms = audio.frame_rate * audio.frame_width * audio.channels / 1000
-    max_ms = (max_bytes / bytes_por_ms)
+# Função para transcrever e validar o arquivo
+def transcrever_audio(audio_path):
+    # Verificar tamanho
+    tamanho = os.path.getsize(audio_path)
+    if tamanho > MAX_MB * 1024 * 1024:
+        raise RuntimeError("O arquivo ultrapassa 25MB permitido pelo Whisper da OpenAI.")
 
-    for i in range(0, len(audio), int(max_ms)):
-        partes.append(audio[i:i + int(max_ms)])
-    return partes
+    # Verificar tipo MIME
+    tipo, _ = mimetypes.guess_type(audio_path)
+    if tipo not in ["audio/mpeg", "audio/mp3", "audio/wav", "audio/webm", "audio/mp4", "audio/x-m4a"]:
+        raise RuntimeError(f"Tipo de áudio inválido para o Whisper: {tipo}")
 
-def transcrever_audio_em_partes(audio_path):
-    audio = AudioSegment.from_file(audio_path)
-    partes = dividir_audio(audio)
-    transcricao_completa = ""
+    # Enviar para o Whisper
+    with open(audio_path, "rb") as f:
+        try:
+            resultado = openai.Audio.transcribe("whisper-1", f)
+            return resultado["text"]
+        except Exception as e:
+            raise RuntimeError(f"Erro ao transcrever com Whisper: {e}")
 
-    for i, parte in enumerate(partes):
-        temp_file = f"chunk_{i}.mp3"
-        parte.export(temp_file, format="mp3")
-        with open(temp_file, "rb") as f:
-            st.info(f"🔊 Transcrevendo parte {i + 1} de {len(partes)}...")
-            try:
-                transcricao = openai.Audio.transcribe("whisper-1", f)
-                transcricao_completa += transcricao["text"] + "\n"
-            except Exception as e:
-                raise RuntimeError(f"Erro na transcrição da parte {i + 1}: {e}")
-        os.remove(temp_file)
-
-    return transcricao_completa
-
+# Execução ao clicar no botão
 if st.button("🔍 Analisar vídeo"):
     if not video_url or not user_question:
-        st.warning("Preencha a URL e a pergunta.")
+        st.warning("Preencha a URL do vídeo e a pergunta.")
         st.stop()
 
     with st.spinner("🎧 Baixando e transcrevendo áudio..."):
         try:
             audio_path = baixar_audio_do_video(video_url)
-            transcricao = transcrever_audio_em_partes(audio_path)
+            transcricao = transcrever_audio(audio_path)
             os.remove(audio_path)
         except Exception as e:
             st.error(f"Erro ao processar o áudio: {e}")
             st.stop()
 
-    with st.spinner("🤖 Enviando pergunta ao ChatGPT..."):
+    with st.spinner("🤖 Enviando para ChatGPT..."):
         llm = ChatOpenAI(
             temperature=0.3,
             model_name="gpt-3.5-turbo",
@@ -91,6 +88,6 @@ if st.button("🔍 Analisar vídeo"):
         qa_chain = load_qa_chain(llm, chain_type="stuff")
         resposta = qa_chain.run(input_documents=docs, question=user_question)
 
-    st.success("✅ Resposta gerada!")
+    st.success("✅ Resposta gerada com sucesso!")
     st.markdown(f"**Pergunta:** {user_question}")
     st.markdown(f"**Resposta:** {resposta}")
