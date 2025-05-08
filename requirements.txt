@@ -1,7 +1,7 @@
 streamlit
 openai
 langchain==0.1.14
-langchain-community==0.0.21
+langchain-community >=0.0.30, <0.1
 pytube
 tiktoken
 requests
