@@ -1,63 +1,54 @@
-import os
-import sys
 import streamlit as st
-from dotenv import load_dotenv, find_dotenv
-from langchain_community.document_loaders import YoutubeLoader
-from langchain_community.chat_models import ChatOpenAI
-from langchain.chains.question_answering import load_qa_chain
+import os
+from langchain.chat_models import ChatOpenAI
+from langchain.agents import initialize_agent, Tool
+from langchain.chains import LLMChain
+from langchain.prompts import PromptTemplate
 
-# Carrega variáveis de ambiente
-dotenv_path = find_dotenv()
-load_dotenv(dotenv_path)
+# Ler variáveis do ambiente (definidas no Streamlit Secrets)
+openai_api_key = os.getenv("OPENAI_API_KEY")
+langsmith_key = os.getenv("LANGSMITH_API_KEY")
+langsmith_endpoint = os.getenv("LANGSMITH_ENDPOINT")
+langsmith_project = os.getenv("LANGSMITH_PROJECT")
+langsmith_tracing = os.getenv("LANGSMITH_TRACING", "false").lower() == "true"
 
-# Lê a chave da API da OpenAI
-api_key = os.getenv("OPENAI_API_KEY")
-if not api_key:
-    st.error("A variável de ambiente OPENAI_API_KEY não está definida.")
+# Configuração inicial do Streamlit
+st.set_page_config(page_title="YouTube AI", layout="wide")
+st.title("🎥 YouTube Video Analyzer with AI")
+
+# Verificar se as chaves foram carregadas corretamente
+if not openai_api_key:
+    st.error("🚨 OPENAI_API_KEY não está configurada!")
     st.stop()
 
-# Título do app
-st.title("🔍 Analisador de Vídeo do YouTube com IA")
+# Exibir debug (opcional, pode remover depois)
+st.sidebar.markdown("## 🔐 API Keys")
+st.sidebar.write("OpenAI Key: ✅" if openai_api_key else "❌")
+st.sidebar.write("LangSmith Key: ✅" if langsmith_key else "❌")
 
-# Inputs do usuário
-url = st.text_input("URL do vídeo no YouTube:")
-question = st.text_area("Digite sua pergunta para a IA:")
+# Inicializar LLM com OpenAI
+llm = ChatOpenAI(
+    temperature=0,
+    model_name="gpt-4",
+    openai_api_key=openai_api_key,
+)
 
-# Botão para processar
-if st.button("Analisar Vídeo"):
-    if not url or not question:
-        st.warning("Por favor, preencha a URL e a pergunta.")
-        st.stop()
+# Prompt de exemplo
+prompt = PromptTemplate(
+    input_variables=["video_title"],
+    template="Resuma o vídeo com título '{video_title}' e explique os principais tópicos de forma simples."
+)
 
-    with st.spinner("Carregando transcrição do vídeo..."):
-        try:
-            loader = YoutubeLoader.from_youtube_url(
-                url,
-                add_video_info=False,
-                language=["pt", "en"],
-                translation=None
-            )
-            docs = loader.load()
-        except Exception as e:
-            st.error(f"Erro ao carregar vídeo: {e}")
-            st.stop()
+chain = LLMChain(llm=llm, prompt=prompt)
 
-    with st.spinner("Processando pergunta com IA..."):
-        try:
-            chat = ChatOpenAI(
-                model_name="gpt-3.5-turbo",
-                openai_api_key=api_key
-            )
+# Interface principal
+video_title = st.text_input("🔍 Título do vídeo", "")
 
-            chain = load_qa_chain(
-                llm=chat,
-                chain_type="map_reduce",  # melhor para longos
-                verbose=False
-            )
-
-            answer = chain.run(input_documents=docs, question=question)
-            st.success("Resposta gerada com sucesso!")
-            st.markdown("### 🧠 Resposta da IA:")
-            st.write(answer)
-        except Exception as e:
-            st.error(f"Erro ao processar pergunta: {e}")
+if st.button("Analisar"):
+    if not video_title:
+        st.warning("Por favor, insira um título de vídeo.")
+    else:
+        with st.spinner("Analisando com IA..."):
+            result = chain.run(video_title=video_title)
+            st.success("✅ Análise concluída!")
+            st.write(result)
