@@ -1,7 +1,5 @@
 streamlit
 openai
-pytube
-pydub
-ffmpeg-python
 langchain==0.1.14
 langchain-community==0.0.30
+youtube-transcript-api
