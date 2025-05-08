@@ -21,11 +21,6 @@ if not openai_api_key:
     st.error("🚨 OPENAI_API_KEY não está configurada!")
     st.stop()
 
-# Exibir debug (opcional, pode remover depois)
-st.sidebar.markdown("## 🔐 API Keys")
-st.sidebar.write("OpenAI Key: ✅" if openai_api_key else "❌")
-st.sidebar.write("LangSmith Key: ✅" if langsmith_key else "❌")
-
 # Inicializar LLM com OpenAI
 llm = ChatOpenAI(
     temperature=0,
