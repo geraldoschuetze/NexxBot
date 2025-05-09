@@ -21,7 +21,8 @@ if not gpt_api_key:
 chat = ChatOpenAI(model_name="gpt-3.5-turbo", openai_api_key=gpt_api_key)
 chain = load_qa_chain(llm=chat, chain_type="map_reduce", verbose=True)
 
-# Função para carregar e concatenar legendas do YouTube def carrega_youtube(video_id):
+# Função para carregar e concatenar legendas do YouTube
+def carrega_youtube(video_id):
     loader = YoutubeLoader(video_id, add_video_info=False, language=["pt"])
     lista_documentos = loader.load()
     documento = "\n\n".join([doc.page_content for doc in lista_documentos])
