@@ -13,13 +13,8 @@ TIPOS_ARQUIVOS_VALIDOS = [
     'Site', 'Youtube', 'Pdf', 'Csv', 'Txt'
 ]
 
-# Configuração dos modelos
-CONFIG_MODELOS = {
-    'OpenAI': {
-        'modelos': ['gpt-4o-mini', 'gpt-4o', 'o1-preview', 'o1-mini'],
-        'chat': ChatOpenAI
-    }
-}
+# Configuração do modelo fixo
+MODELO_FIXO = 'gpt-4o-mini'
 
 MEMORIA = ConversationBufferMemory()
 
@@ -45,7 +40,7 @@ def carrega_arquivos(tipo_arquivo, arquivo):
         documento = carrega_txt(nome_temp)
     return documento
 
-def carrega_modelo(modelo, tipo_arquivo, arquivo):
+def carrega_modelo(tipo_arquivo, arquivo):
     documento = carrega_arquivos(tipo_arquivo, arquivo)
 
     system_message = f'''Você é um assistente amigável chamado Oráculo.
@@ -71,7 +66,7 @@ sugira ao usuário carregar novamente o Oráculo!'''
 
     # pega a key direto dos secrets do Streamlit
     api_key = st.secrets["OPENAI_API_KEY"]
-    chat = ChatOpenAI(model=modelo, api_key=api_key)
+    chat = ChatOpenAI(model=MODELO_FIXO, api_key=api_key)
     chain = template | chat
 
     st.session_state['chain'] = chain
@@ -103,28 +98,21 @@ def pagina_chat():
         st.session_state['memoria'] = memoria
 
 def sidebar():
-    tabs = st.tabs(['Upload de Arquivos', 'Seleção de Modelo'])
-    with tabs[0]:
-        tipo_arquivo = st.selectbox('Selecione o tipo de arquivo', TIPOS_ARQUIVOS_VALIDOS)
-        if tipo_arquivo == 'Site':
-            arquivo = st.text_input('Digite a url do site')
-        if tipo_arquivo == 'Youtube':
-            arquivo = st.text_input('Digite a url do vídeo')
-        if tipo_arquivo == 'Pdf':
-            arquivo = st.file_uploader('Faça o upload do arquivo pdf', type=['.pdf'])
-        if tipo_arquivo == 'Csv':
-            arquivo = st.file_uploader('Faça o upload do arquivo csv', type=['.csv'])
-        if tipo_arquivo == 'Txt':
-            arquivo = st.file_uploader('Faça o upload do arquivo txt', type=['.txt'])
-    with tabs[1]:
-        # como só há um provedor, só exibimos o modelo
-        modelo = st.selectbox(
-            'Selecione o modelo OpenAI',
-            CONFIG_MODELOS['OpenAI']['modelos']
-        )
+    st.subheader('Upload de Arquivos')
+    tipo_arquivo = st.selectbox('Selecione o tipo de arquivo', TIPOS_ARQUIVOS_VALIDOS)
+    if tipo_arquivo == 'Site':
+        arquivo = st.text_input('Digite a url do site')
+    if tipo_arquivo == 'Youtube':
+        arquivo = st.text_input('Digite a url do vídeo')
+    if tipo_arquivo == 'Pdf':
+        arquivo = st.file_uploader('Faça o upload do arquivo pdf', type=['.pdf'])
+    if tipo_arquivo == 'Csv':
+        arquivo = st.file_uploader('Faça o upload do arquivo csv', type=['.csv'])
+    if tipo_arquivo == 'Txt':
+        arquivo = st.file_uploader('Faça o upload do arquivo txt', type=['.txt'])
 
     if st.button('Inicializar Oráculo', use_container_width=True):
-        carrega_modelo(modelo, tipo_arquivo, arquivo)
+        carrega_modelo(tipo_arquivo, arquivo)
     if st.button('Apagar Histórico de Conversa', use_container_width=True):
         st.session_state['memoria'] = MEMORIA
 
