@@ -3,6 +3,7 @@ import tempfile
 import streamlit as st
 from langchain.memory import ConversationBufferMemory
 
+from langchain_groq import ChatGroq
 from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
 
@@ -13,13 +14,12 @@ TIPOS_ARQUIVOS_VALIDOS = [
     'Site', 'Youtube', 'Pdf', 'Csv', 'Txt'
 ]
 
-# Mantendo apenas o provedor OpenAI e usando a chave do Streamlit Secrets
-CONFIG_MODELOS = {
-    'OpenAI': {
-        'modelos': ['gpt-4o-mini', 'gpt-4o', 'o1-preview', 'o1-mini'],
-        'chat': ChatOpenAI
-    }
-}
+CONFIG_MODELOS = {'Groq': 
+                        {'modelos': ['llama-3.1-70b-versatile', 'gemma2-9b-it', 'mixtral-8x7b-32768'],
+                         'chat': ChatGroq},
+                  'OpenAI': 
+                        {'modelos': ['gpt-4o-mini', 'gpt-4o', 'o1-preview', 'o1-mini'],
+                         'chat': ChatOpenAI}}
 
 MEMORIA = ConversationBufferMemory()
 
@@ -98,7 +98,7 @@ def pagina_chat():
         resposta = chat.write_stream(chain.stream({
             'input': input_usuario, 
             'chat_history': memoria.buffer_as_messages
-        }))
+            }))
         
         memoria.chat_memory.add_user_message(input_usuario)
         memoria.chat_memory.add_ai_message(resposta)
@@ -121,8 +121,10 @@ def sidebar():
     with tabs[1]:
         provedor = st.selectbox('Selecione o provedor dos modelo', CONFIG_MODELOS.keys())
         modelo = st.selectbox('Selecione o modelo', CONFIG_MODELOS[provedor]['modelos'])
-        # Usa chave armazenada em secrets do Streamlit
-        api_key = st.secrets["OPENAI_API_KEY"]
+        api_key = st.text_input(
+            f'Adicione a api key para o provedor {provedor}',
+            value=st.session_state.get(f'api_key_{provedor}'))
+        st.session_state[f'api_key_{provedor}'] = api_key
     
     if st.button('Inicializar Oráculo', use_container_width=True):
         carrega_modelo(provedor, modelo, api_key, tipo_arquivo, arquivo)
@@ -133,6 +135,7 @@ def main():
     with st.sidebar:
         sidebar()
     pagina_chat()
+
 
 if __name__ == '__main__':
     main()
