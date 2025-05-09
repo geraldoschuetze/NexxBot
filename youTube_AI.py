@@ -6,9 +6,10 @@ from langchain.chains.question_answering import load_qa_chain
 from langchain.schema import Document
 
 # Lê a chave da OpenAI dos secrets do Streamlit
-gpt_api_key = st.secrets.get("OPENAI_KEY")
+# O secret está definido como OPENAI_API_KEY
+gpt_api_key = st.secrets.get("OPENAI_API_KEY")
 if not gpt_api_key:
-    st.error("A chave OPENAI_KEY não está configurada nos secrets.")
+    st.error("A chave OPENAI_API_KEY não está configurada nos secrets.")
     st.stop()
 
 # Inicializa modelo e cadeia de QA
