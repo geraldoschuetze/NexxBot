@@ -1,49 +1,65 @@
 import streamlit as st
-import os
 from langchain_community.document_loaders import YoutubeLoader
 from langchain_community.chat_models import ChatOpenAI
 from langchain.chains.question_answering import load_qa_chain
 
-# Carrega a chave da OpenAI
-openai_api_key = os.getenv("OPENAI_API_KEY")
-if not openai_api_key:
-    st.error("OPENAI_API_KEY não está configurada.")
+# --- Configurações iniciais ---
+st.set_page_config(page_title="QA YouTube Dinâmico", layout="wide")
+st.title("Análise de Vídeos do YouTube com LangChain + OpenAI")
+
+# 1) Carrega a chave da OpenAI do Streamlit Secrets
+api_key = st.secrets.get("OPENAI_API_KEY")
+if not api_key:
+    st.error("❌ A chave OPENAI_API_KEY não foi encontrada em `st.secrets`."
+             )
     st.stop()
 
-# Layout da página
-st.set_page_config(page_title="YouTube AI - com Legendas", layout="wide")
-st.title("📺 YouTube AI – Analisa vídeo via legendas")
+# 2) Inputs de URL e Pergunta Dinâmica
+url = st.text_input(
+    "URL do Vídeo YouTube:",
+    placeholder="Cole a URL do vídeo aqui",
+    help="Por exemplo: https://www.youtube.com/watch?v=YMJiJWpE-68"
+)
 
-# Inputs
-video_url = st.text_input("🔗 URL do vídeo do YouTube:")
-user_question = st.text_input("❓ O que você quer saber sobre o vídeo?")
+question = st.text_input(
+    "Pergunta:",
+    placeholder="Digite sua pergunta sobre o conteúdo do vídeo",
+    help="Qualquer pergunta baseada na transcrição das legendas do vídeo"
+)
 
-if st.button("🔍 Analisar"):
-    if not video_url or not user_question:
-        st.warning("Preencha a URL e a pergunta.")
-        st.stop()
+# 3) Botão de execução
+if st.button("🔍 Analisar"):  
+    if not url or not question:
+        st.warning("Por favor, insira tanto a URL do vídeo quanto a pergunta.")
+    else:
+        with st.spinner("Processando... Carregando legendas e consultando OpenAI..."):
+            try:
+                # 4) Carrega as legendas do vídeo
+                loader = YoutubeLoader.from_youtube_url(
+                    url,
+                    add_video_info=False,
+                    language=["pt", "en"],
+                    translation=None
+                )
+                docs = loader.load()
 
-    with st.spinner("📝 Carregando legendas do vídeo..."):
-        try:
-            loader = YoutubeLoader.from_youtube_url(
-                video_url,
-                language=["pt", "en"],
-                add_video_info=False,
-                translation=None
-            )
-            docs = loader.load()
-        except Exception as e:
-            st.error(f"Erro ao carregar as legendas: {e}")
-            st.stop()
+                # 5) Inicializa o modelo e a cadeia de QA
+                chat = ChatOpenAI(
+                    model_name="gpt-3.5-turbo",
+                    openai_api_key=api_key
+                )
+                chain = load_qa_chain(
+                    llm=chat,
+                    chain_type="map_reduce",
+                    verbose=False
+                )
 
-    with st.spinner("🤖 Enviando para o modelo GPT..."):
-        chat = ChatOpenAI(
-            model_name="gpt-3.5-turbo",
-            openai_api_key=openai_api_key
-        )
-        chain = load_qa_chain(llm=chat, chain_type="stuff")
-        resposta = chain.run(input_documents=docs, question=user_question)
+                # 6) Executa a pergunta sobre qualquer tópico
+                result = chain.run(input_documents=docs, question=question)
 
-    st.success("✅ Resposta gerada com sucesso!")
-    st.markdown(f"**Pergunta:** {user_question}")
-    st.markdown(f"**Resposta:** {resposta}")
+                # 7) Exibe o resultado
+                st.subheader("Resposta")
+                st.write(result)
+
+            except Exception as e:
+                st.error(f"❌ Ocorreu um erro: {e}")
