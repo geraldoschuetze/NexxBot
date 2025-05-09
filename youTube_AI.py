@@ -1,6 +1,7 @@
 import streamlit as st
-from langchain_community.document_loaders import YoutubeLoader
-from langchain_community.chat_models import ChatOpenAI
+from youtube_transcript_api import YouTubeTranscriptApi
+from langchain.schema import Document
+from langchain.chat_models import ChatOpenAI
 from langchain.chains.question_answering import load_qa_chain
 
 # --- Configurações iniciais ---
@@ -10,8 +11,7 @@ st.title("Análise de Vídeos do YouTube com LangChain + OpenAI")
 # 1) Carrega a chave da OpenAI do Streamlit Secrets
 api_key = st.secrets.get("OPENAI_API_KEY")
 if not api_key:
-    st.error("❌ A chave OPENAI_API_KEY não foi encontrada em `st.secrets`."
-             )
+    st.error("❌ A chave OPENAI_API_KEY não foi encontrada em `st.secrets`.")
     st.stop()
 
 # 2) Inputs de URL e Pergunta Dinâmica
@@ -20,7 +20,6 @@ url = st.text_input(
     placeholder="Cole a URL do vídeo aqui",
     help="Por exemplo: https://www.youtube.com/watch?v=YMJiJWpE-68"
 )
-
 question = st.text_input(
     "Pergunta:",
     placeholder="Digite sua pergunta sobre o conteúdo do vídeo",
@@ -32,18 +31,27 @@ if st.button("🔍 Analisar"):
     if not url or not question:
         st.warning("Por favor, insira tanto a URL do vídeo quanto a pergunta.")
     else:
-        with st.spinner("Processando... Carregando legendas e consultando OpenAI..."):
+        with st.spinner("Processando... Obtendo legendas e consultando a OpenAI..."):
             try:
-                # 4) Carrega as legendas do vídeo
-                loader = YoutubeLoader.from_youtube_url(
-                    url,
-                    add_video_info=False,
-                    language=["pt", "en"],
-                    translation=None
-                )
-                docs = loader.load()
+                # Extrai o ID do vídeo da URL
+                video_id = url.split("v=")[-1].split("&")[0]
 
-                # 5) Inicializa o modelo e a cadeia de QA
+                # Busca as legendas em PT e EN
+                transcripts = YouTubeTranscriptApi.get_transcript(
+                    video_id,
+                    languages=["pt", "en"]
+                )
+
+                # Converte para Document do LangChain
+                docs = [
+                    Document(
+                        page_content=snippet['text'],
+                        metadata={'start': snippet['start'], 'duration': snippet['duration']}
+                    )
+                    for snippet in transcripts
+                ]
+
+                # Inicializa o modelo e a cadeia de QA
                 chat = ChatOpenAI(
                     model_name="gpt-3.5-turbo",
                     openai_api_key=api_key
@@ -54,10 +62,10 @@ if st.button("🔍 Analisar"):
                     verbose=False
                 )
 
-                # 6) Executa a pergunta sobre qualquer tópico
+                # Executa a pergunta sobre qualquer tópico
                 result = chain.run(input_documents=docs, question=question)
 
-                # 7) Exibe o resultado
+                # Exibe o resultado
                 st.subheader("Resposta")
                 st.write(result)
 
