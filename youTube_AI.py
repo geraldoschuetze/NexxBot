@@ -13,6 +13,7 @@ TIPOS_ARQUIVOS_VALIDOS = [
     'Site', 'Youtube', 'Pdf', 'Csv', 'Txt'
 ]
 
+<<<<<<< HEAD
 # Configuração do modelo fixo
 MODELO_FIXO = 'gpt-4o-mini'
 
@@ -38,6 +39,12 @@ def carrega_arquivos(tipo_arquivo, arquivo):
             temp.write(arquivo.read())
             nome_temp = temp.name
         documento = carrega_txt(nome_temp)
+=======
+# Função para carregar e concatenar legendas do YouTube def carrega_youtube(video_id):
+    loader = YoutubeLoader(video_id, add_video_info=False, language=["pt"])
+    lista_documentos = loader.load()
+    documento = "\n\n".join([doc.page_content for doc in lista_documentos])
+>>>>>>> parent of 13dcabe (Update youTube_AI.py)
     return documento
 
 def carrega_modelo(tipo_arquivo, arquivo):
