@@ -1,5 +1,3 @@
-import os
-from dotenv import load_dotenv, find_dotenv
 import streamlit as st
 from urllib.parse import urlparse, parse_qs
 from langchain_community.document_loaders import YoutubeLoader
@@ -7,14 +5,10 @@ from langchain_community.chat_models import ChatOpenAI
 from langchain.chains.question_answering import load_qa_chain
 from langchain.schema import Document
 
-# Carrega variáveis de ambiente
-dotenv_path = find_dotenv()
-load_dotenv(dotenv_path)
-
-# Lê a chave da OpenAI
-gpt_api_key = os.getenv("OPENAI_API_KEY")
+# Lê a chave da OpenAI dos secrets do Streamlit
+gpt_api_key = st.secrets.get("OPENAI_KEY")
 if not gpt_api_key:
-    st.error("A variável de ambiente OPENAI_API_KEY não está definida.")
+    st.error("A chave OPENAI_KEY não está configurada nos secrets.")
     st.stop()
 
 # Inicializa modelo e cadeia de QA
